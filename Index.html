@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Create Your Valentine Proposal 💘</title>
+  <style>
+    body {
+      font-family: Arial;
+      text-align: center;
+      background: linear-gradient(135deg,#ff758c,#ff7eb3);
+      color: white;
+      padding: 30px;
+    }
+
+    .box {
+      background: rgba(255,255,255,0.2);
+      padding: 30px;
+      border-radius: 20px;
+      max-width: 400px;
+      margin: auto;
+    }
+
+    input, textarea {
+      width: 90%;
+      padding: 10px;
+      margin: 10px;
+      border-radius: 10px;
+      border: none;
+    }
+
+    button {
+      padding: 10px 20px;
+      border-radius: 20px;
+      border: none;
+      background: red;
+      color: white;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Create Your Valentine Proposal 💖</h1>
+
+<div class="box">
+  <input type="text" id="yourName" placeholder="Your Name">
+  <input type="text" id="crushName" placeholder="Your Valentine Name">
+  <textarea id="message" placeholder="Your Love Message"></textarea>
+  <button onclick="generateLink()">Generate Proposal Link 💌</button>
+
+  <p id="link"></p>
+</div>
+
+<script>
+function generateLink() {
+  let yourName = encodeURIComponent(document.getElementById("yourName").value);
+  let crushName = encodeURIComponent(document.getElementById("crushName").value);
+  let message = encodeURIComponent(document.getElementById("message").value);
+
+  let url = `proposal.html?from=${yourName}&to=${crushName}&msg=${message}`;
+
+  document.getElementById("link").innerHTML =
+    `<br>Send this link to your Valentine 💘<br>
+     <a href="${url}" target="_blank" style="color:yellow;">${url}</a>`;
+}
+</script>
+
+</body>
+</html>
