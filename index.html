@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Create Your Valentine Proposal 💖</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body {
+  font-family: Arial;
+  text-align: center;
+  background: linear-gradient(135deg,#ff4e8a,#ff9a9e);
+  color: white;
+  padding: 20px;
+}
+.box {
+  background: rgba(255,255,255,0.2);
+  padding: 30px;
+  border-radius: 20px;
+  max-width: 400px;
+  margin: auto;
+  backdrop-filter: blur(10px);
+}
+input, textarea {
+  width: 90%;
+  padding: 10px;
+  margin: 10px;
+  border-radius: 10px;
+  border: none;
+}
+button {
+  padding: 12px 20px;
+  border-radius: 30px;
+  border: none;
+  background: red;
+  color: white;
+  cursor: pointer;
+  font-size: 16px;
+}
+a { color: yellow; word-wrap: break-word; }
+</style>
+</head>
+<body>
+
+<h1>Create Your Valentine Proposal 💘</h1>
+
+<div class="box">
+  <input type="text" id="yourName" placeholder="Your Name" required>
+  <input type="text" id="crushName" placeholder="Valentine Name" required>
+  <textarea id="message" placeholder="Your Love Message" required></textarea>
+  <input type="file" id="imgFile" accept="image/*">
+  <button onclick="generateLink()">Generate Proposal Link 💌</button>
+  <p id="link"></p>
+</div>
+
+<script>
+function generateLink() {
+  let yourName = encodeURIComponent(document.getElementById("yourName").value);
+  let crushName = encodeURIComponent(document.getElementById("crushName").value);
+  let message = encodeURIComponent(document.getElementById("message").value);
+
+  if(!yourName || !crushName || !message){
+    alert("Please fill all fields ❤️");
+    return;
+  }
+
+  let url = `https://seronjeyaseelan-star.github.io/love-proposal-/proposal.html?from=${yourName}&to=${crushName}&msg=${message}`;
+  document.getElementById("link").innerHTML =
+    `<br>Send this link to your Valentine 💖<br><a href="${url}" target="_blank">${url}</a>`;
+}
+</script>
+
+</body>
+</html>
