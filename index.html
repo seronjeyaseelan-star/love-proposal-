@@ -2,97 +2,52 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Realtime Room Chat
-  🔥 create by seron 🔥
-</title>
+<title>Advanced Room Chat</title>
 
 <style>
-body{
-  font-family: Arial;
-  margin:0;
-  text-align:center;
-  transition:0.3s;
-}
-.dark{
-  background:#0f172a;
-  color:white;
-}
-.light{
-  background:#f1f5f9;
-  color:black;
-}
-#chat{display:none;}
-#messages{
-  height:300px;
-  overflow-y:auto;
-  border:1px solid gray;
-  margin:10px;
-  padding:10px;
-  border-radius:10px;
-}
-.msg{
-  padding:6px;
-  margin:4px;
-  border-radius:8px;
-  background:#22c55e33;
-}
-input,button{
-  padding:10px;
-  margin:5px;
-  border-radius:8px;
-  border:none;
-}
-button{
-  background:#22c55e;
-  color:white;
-}
-#typing{
-  font-size:12px;
-  opacity:0.7;
-}
-.topbar{
-  display:flex;
-  justify-content:space-between;
-  padding:10px;
-}
+body{font-family:Arial;margin:0;text-align:center}
+.dark{background:#0f172a;color:white}
+.light{background:#f1f5f9;color:black}
+#chat{display:none}
+#messages{height:300px;overflow:auto;border:1px solid gray;margin:10px;padding:10px;border-radius:10px}
+.msg{padding:6px;margin:4px;border-radius:8px;background:#22c55e33}
+input,button{padding:10px;margin:5px;border-radius:8px;border:none}
+button{background:#22c55e;color:white}
 </style>
 </head>
 
 <body class="dark">
 
-<div class="topbar">
-<div id="onlineCount">Online: 0</div>
-<button onclick="toggleTheme()">🌙 / ☀</button>
-</div>
-
-<h2>Realtime Temporary Chat
- 🔥 create by seron 🔥
-</h2>
+<h2>Advanced Temporary Chat</h2>
 
 <div id="roomPage">
 <button onclick="createRoom()">Create Room</button><br>
 <input id="roomInput" placeholder="Enter Room ID">
-<button onclick="joinRoom()">Join Room</button>
+<button onclick="joinRoom()">Join Room</button><br>
+<label>Auto Destroy (minutes)</label>
+<input id="timer" type="number" placeholder="Ex: 5">
+<div id="error" style="color:red"></div>
 </div>
 
 <div id="chat">
 <h3 id="roomTitle"></h3>
+<div>Online: <span id="online">0</span></div>
 <div id="messages"></div>
-<div id="typing"></div>
-<input id="msg" placeholder="Type message" oninput="typing()">
+
+<input id="msg" placeholder="Message" oninput="typing()">
 <button onclick="sendMsg()">Send</button>
-<div id="seen"></div>
+
+<button onclick="startRecord()">🎤 Voice</button>
+<input type="file" accept="image/*" onchange="sendImage(event)">
+
+<div id="typing"></div>
+
+<button onclick="toggleTheme()">Theme</button>
 </div>
 
-<!-- Sounds -->
-<audio id="joinSound" src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3"></audio>
-<audio id="leaveSound" src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_1b2c3c.mp3"></audio>
-
-<!-- Firebase -->
 <script type="module">
-
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getDatabase, ref, set, push, onValue, onChildAdded, onDisconnect } 
+import { getDatabase, ref, set, push, onValue, onChildAdded, onDisconnect, remove }
 from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 const firebaseConfig = {
@@ -105,22 +60,27 @@ const firebaseConfig = {
   appId: "1:237808362163:web:52d25dfbffaffde12446c6"
 };
 
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
+const app=initializeApp(firebaseConfig);
+const db=getDatabase(app);
 
 let room="";
-let user=Math.random().toString(36).substring(2,8);
-let msgRef, userRef, typingRef;
+let user="user"+Math.floor(Math.random()*1000);
+let admin=false;
+let msgRef;
 
-/* ROOM CREATE */
 window.createRoom=()=>{
  room=Math.random().toString(36).substring(2,6);
+ admin=true;
  startChat();
 }
 
-/* JOIN ROOM */
 window.joinRoom=()=>{
- room=document.getElementById("roomInput").value;
+ let r=document.getElementById("roomInput").value;
+ if(!r){
+   document.getElementById("error").innerText="Enter Room ID";
+   return;
+ }
+ room=r;
  startChat();
 }
 
@@ -130,77 +90,114 @@ function startChat(){
  document.getElementById("roomTitle").innerText="Room: "+room;
 
  msgRef=ref(db,"rooms/"+room+"/messages");
- userRef=ref(db,"rooms/"+room+"/users/"+user);
- typingRef=ref(db,"rooms/"+room+"/typing/"+user);
 
+ let userRef=ref(db,"rooms/"+room+"/users/"+user);
  set(userRef,true);
  onDisconnect(userRef).remove();
- onDisconnect(typingRef).remove();
 
- document.getElementById("joinSound").play();
-
- /* ONLINE COUNT */
- onValue(ref(db,"rooms/"+room+"/users"),snap=>{
-   if(!snap.exists()) return;
-   document.getElementById("onlineCount").innerText=
-     "Online: "+Object.keys(snap.val()).length;
+ /* USER COUNT */
+ onValue(ref(db,"rooms/"+room+"/users"),s=>{
+  if(!s.exists()) return;
+  let list=Object.keys(s.val());
+  document.getElementById("online").innerText=list.length;
  });
 
- /* RECEIVE MSG */
- onChildAdded(msgRef,snap=>{
-   let m=snap.val();
+ /* MESSAGES */
+ onChildAdded(msgRef,s=>{
+   let m=s.val();
    let div=document.createElement("div");
    div.className="msg";
-   div.innerText=m.text;
-   document.getElementById("messages").appendChild(div);
 
-   document.getElementById("seen").innerText="Seen";
- });
-
- /* TYPING SHOW */
- onValue(ref(db,"rooms/"+room+"/typing"),snap=>{
-   if(!snap.exists()){
-     document.getElementById("typing").innerText="";
-     return;
+   if(m.type=="text"){
+     div.innerHTML="<b>"+m.user+"</b>: "+m.text;
    }
-   document.getElementById("typing").innerText="Someone typing...";
+   if(m.type=="img"){
+     div.innerHTML="<b>"+m.user+"</b><br><img src='"+m.text+"' width=120>";
+   }
+   if(m.type=="voice"){
+     div.innerHTML="<b>"+m.user+"</b><br><audio controls src='"+m.text+"'></audio>";
+   }
+
+   document.getElementById("messages").appendChild(div);
  });
+
+ /* TYPING */
+ onValue(ref(db,"rooms/"+room+"/typing"),s=>{
+  if(!s.exists()) document.getElementById("typing").innerText="";
+  else document.getElementById("typing").innerText="Someone typing...";
+ });
+
+ /* AUTO TIMER */
+ let t=document.getElementById("timer").value;
+ if(admin && t){
+   setTimeout(()=>{
+     remove(ref(db,"rooms/"+room));
+     alert("Room Destroyed");
+     location.reload();
+   },t*60000);
+ }
 }
 
-/* SEND MESSAGE */
+/* SEND TEXT */
 window.sendMsg=()=>{
  let text=document.getElementById("msg").value;
- if(text==="") return;
+ if(!text) return;
 
- push(msgRef,{
-   text:text,
-   user:user,
-   time:Date.now()
- });
-
- set(typingRef,null);
+ push(msgRef,{user:user,type:"text",text:text});
  document.getElementById("msg").value="";
+}
+
+/* IMAGE SEND */
+window.sendImage=(e)=>{
+ let file=e.target.files[0];
+ let reader=new FileReader();
+ reader.onload=()=>{
+   push(msgRef,{user:user,type:"img",text:reader.result});
+ };
+ reader.readAsDataURL(file);
+}
+
+/* VOICE RECORD */
+let mediaRecorder;
+let audioChunks=[];
+
+window.startRecord=async()=>{
+ let stream=await navigator.mediaDevices.getUserMedia({audio:true});
+ mediaRecorder=new MediaRecorder(stream);
+ mediaRecorder.start();
+
+ mediaRecorder.ondataavailable=e=>{
+   audioChunks.push(e.data);
+ };
+
+ mediaRecorder.onstop=()=>{
+   let blob=new Blob(audioChunks,{type:"audio/mp3"});
+   let reader=new FileReader();
+   reader.onload=()=>{
+     push(msgRef,{user:user,type:"voice",text:reader.result});
+   };
+   reader.readAsDataURL(blob);
+   audioChunks=[];
+ };
+
+ setTimeout(()=>mediaRecorder.stop(),3000);
 }
 
 /* TYPING */
 window.typing=()=>{
- set(typingRef,true);
- setTimeout(()=>set(typingRef,null),2000);
+ set(ref(db,"rooms/"+room+"/typing/"+user),true);
+ setTimeout(()=>{
+  remove(ref(db,"rooms/"+room+"/typing/"+user));
+ },2000);
 }
 
-/* THEME SWITCH */
+/* THEME */
 window.toggleTheme=()=>{
  let b=document.body;
- if(b.classList.contains("dark")){
-   b.classList.remove("dark");
-   b.classList.add("light");
- }else{
-   b.classList.remove("light");
-   b.classList.add("dark");
- }
+ b.classList.toggle("dark");
+ b.classList.toggle("light");
 }
 
 </script>
-
 </body>
 </html>
