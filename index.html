@@ -1,264 +1,160 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Chat Room</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<style>
-body{margin:0;font-family:Arial;background:linear-gradient(135deg,#1e1f29,#0b141a);color:white;display:flex;flex-direction:column;align-items:center;min-height:100vh;}
-.menu{display:flex;flex-direction:column;align-items:center;justify-content:center;width:95vw;max-width:400px;margin-top:50px;padding:20px;background:rgba(30,31,41,0.9);border-radius:12px;box-shadow:0 0 15px rgba(255,87,34,0.5);}
-.menu h2{font-size:24px;margin-bottom:20px;color:#ff5722;text-shadow:0 0 8px orange;}
-.menu input{width:100%;padding:15px;font-size:16px;border-radius:8px;border:none;margin:10px 0;}
-.menu button{width:100%;padding:15px;margin:8px 0;font-size:18px;font-weight:bold;color:white;background:#ff5722;border:none;border-radius:10px;cursor:pointer;transition:all 0.3s;}
-.menu button:hover{background:#e64a19;transform:scale(1.03);}
-.roomCode{font-size:16px;margin-top:15px;text-align:center;}
-.container{width:95vw;max-width:420px;aspect-ratio:9/16;background:#111b21;display:flex;flex-direction:column;border-radius:12px;overflow:hidden;margin-top:20px;box-shadow:0 0 20px rgba(255,87,34,0.4);}
-header{background:#202c33;padding:12px;display:flex;justify-content:space-between;font-size:14px;align-items:center;}
-#chat{flex:1;overflow-y:auto;padding:10px;background:#0f1b24;}
-.msg{padding:8px;margin:6px;border-radius:10px;max-width:70%;word-wrap:break-word;}
-.me{background:#005c4b;margin-left:auto;}
-.other{background:#202c33;}
-.controls{display:flex;gap:6px;padding:10px;background:#202c33;}
-.controls input{flex:1;padding:12px;border-radius:8px;border:none;font-size:16px;}
-.controls button{padding:12px;border-radius:8px;border:none;font-size:16px;cursor:pointer;background:#ff5722;color:white;font-weight:bold;transition:all 0.3s;}
-.controls button:hover{background:#e64a19;}
-.credit{margin-top:12px;color:#ff5722;font-size:14px;text-shadow:0 0 6px orange;text-align:center;}
-/* Share popup */
-#sharePopup{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:9999;display:flex;justify-content:center;align-items:center;}
-#sharePopup div{background:#202c33;padding:20px;border-radius:12px;text-align:center;color:white;max-width:90vw;}
-#sharePopup h3{color:#ff5722;margin-bottom:12px;}
-#sharePopup button{padding:12px 20px;font-size:16px;font-weight:bold;border:none;border-radius:8px;background:#ff5722;color:white;cursor:pointer;margin:5px;}
-#sharePopup .closeBtn{background:#555;}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seron Chat Room</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root { --app-height: 100%; }
+        body { background: #0b141a; color: white; font-family: sans-serif; height: 100vh; overflow: hidden; }
+        .mobile-container { max-width: 450px; margin: 0 auto; height: 100%; display: flex; flex-direction: column; border-left: 1px solid #333; border-right: 1px solid #333; position: relative; }
+        .chat-area { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 8px; }
+        .bubble { max-width: 80%; padding: 8px 12px; border-radius: 12px; font-size: 14px; position: relative; animation: fadeIn 0.2s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        .my-msg { align-self: flex-end; border-top-right-radius: 2px; }
+        .their-msg { align-self: flex-start; border-top-left-radius: 2px; }
+        .hidden { display: none !important; }
+    </style>
 </head>
 <body>
 
-<!-- MENU -->
-<div id="menu" class="menu">
-<h2>Chat Room</h2>
-<button onclick="createRoom()">Create Room</button>
-<input id="joinCode" placeholder="Enter Room Code">
-<button onclick="joinRoom()">Join Room</button>
-<div id="roomDisplay" class="roomCode"></div>
-<label>Destroy Timer (minutes, optional): <input id="destroyTimer" type="number" min="1" max="1440" placeholder="e.g. 10"></label>
-</div>
+<div id="app" class="mobile-container">
+    <div id="menu" class="absolute inset-0 bg-[#111b21] z-50 flex flex-col items-center justify-center p-6 text-center">
+        <h1 class="text-2xl font-bold mb-8">Seron Chat Room</h1>
+        <div class="w-full space-y-4">
+            <input id="userName" type="text" placeholder="Your Name" class="w-full p-3 rounded bg-[#2a3942] border-none outline-none">
+            <hr class="border-[#333]">
+            <button id="btnCreate" class="w-full bg-emerald-600 p-3 rounded font-bold">Create New Room</button>
+            <div class="flex gap-2">
+                <input id="joinId" type="text" placeholder="Room Code" class="flex-1 p-3 rounded bg-[#2a3942] border-none">
+                <button id="btnJoin" class="bg-blue-600 px-4 rounded">Join</button>
+            </div>
+            <input id="destroyTime" type="number" placeholder="Destroy in (mins)" class="w-full p-3 rounded bg-[#2a3942] border-none">
+        </div>
+        <p class="mt-10 text-xs text-gray-500">Created by Seron</p>
+    </div>
 
-<!-- CHAT PAGE -->
-<div class="container" id="chatUI" style="display:none">
-<header>
-<div>Room: <span id="roomLabel"></span></div>
-<div>
-<button onclick="shareRoom()">Share</button>
-<button id="adminBtn" onclick="destroyRoom()" style="display:none">Delete</button>
-<button onclick="enterAdminCode()">Admin</button>
-</div>
-</header>
+    <header class="p-4 bg-[#202c33] flex justify-between items-center shadow-md">
+        <div>
+            <div id="roomDisplay" class="text-xs text-emerald-500 font-mono"></div>
+            <div id="creatorName" class="font-bold">Seron</div>
+        </div>
+        <button id="btnAdminDestroy" class="hidden bg-red-600 text-xs px-2 py-1 rounded">Destroy Room</button>
+    </header>
 
-<div id="chat"></div>
+    <div id="chatBox" class="chat-area bg-[#0b141a]">
+        </div>
 
-<div class="controls">
-<input id="msg" placeholder="Type message">
-<button onclick="sendMsg()">Send</button>
-<input type="file" id="imageInput" style="display:none" accept="image/*" onchange="sendImage(event)">
-<button onclick="document.getElementById('imageInput').click()">Image</button>
-<button id="voiceBtn" onclick="startVoice()">Voice</button>
-<button onclick="leave()">Leave</button>
-</div>
-</div>
+    <div id="typingIndicator" class="px-4 py-1 text-xs italic text-gray-400 h-5"></div>
 
-<div class="credit">Created by: Seron</div>
-
-<!-- Share Popup -->
-<div id="sharePopup">
-<div>
-<h3>Invite your friends!</h3>
-<p>Share our website and chat with your friends.</p>
-<button id="sharePopupBtn">Share Link</button>
-<br>
-<button class="closeBtn" onclick="closeSharePopup()">Close</button>
-</div>
+    <footer class="p-3 bg-[#202c33] flex gap-2 items-center">
+        <button id="btnImage" class="text-xl">🖼️</button>
+        <input id="msgInput" type="text" placeholder="Type a message..." class="flex-1 bg-[#2a3942] p-2 rounded-full outline-none px-4">
+        <button id="btnVoice" class="bg-emerald-600 w-10 h-10 rounded-full flex items-center justify-center">🎤</button>
+    </footer>
 </div>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getDatabase, ref, set, push, onValue, remove, get, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getDatabase, ref, set, push, onValue, onChildAdded, remove, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+    import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 
-// --- Firebase Config ---
-const firebaseConfig = {
-apiKey:"AIzaSyC4mYZ5G-WCjt7wAN0G6_B6rh1LDM10U0Q",
-authDomain:"chat-data-59467.firebaseapp.com",
-databaseURL:"https://chat-data-59467-default-rtdb.asia-southeast1.firebasedatabase.app",
-projectId:"chat-data-59467",
-storageBucket:"chat-data-59467.appspot.com",
-messagingSenderId:"237808362163",
-appId:"1:237808362163:web:52d25dfbffaffde12446c6"
-};
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-const storage = getStorage(app);
-
-let room="", user="Seron", isAdmin=false, adminCode="", destroyTimeout;
-
-async function generateUniqueRoom(){
-  const chars="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  let code="", exists=true;
-  while(exists){
-    code=""; for(let i=0;i<16;i++) code+=chars.charAt(Math.floor(Math.random()*chars.length));
-    exists=(await get(ref(db,"rooms/"+code))).exists();
-  }
-  return code;
-}
-
-function generateAdminCode(){
-  const digits=Math.floor(1000+Math.random()*9000);
-  const letters=String.fromCharCode(65+Math.floor(Math.random()*26))+String.fromCharCode(65+Math.floor(Math.random()*26));
-  return digits+letters;
-}
-
-async function createRoom(){
-  room=await generateUniqueRoom();
-  adminCode=generateAdminCode();
-  isAdmin=true;
-  const timerVal=parseInt(document.getElementById("destroyTimer").value);
-  const destroyTime=timerVal?Date.now()+timerVal*60000:null;
-  set(ref(db,"rooms/"+room),{adminCode:adminCode,destroyTime});
-  document.getElementById("roomDisplay").innerHTML=`Room Code: ${room} <br> Admin Code: ${adminCode}`;
-  document.getElementById("adminBtn").style.display="inline-block";
-  startChat();
-  showSharePopup(); // popup on create
-  if(destroyTime) scheduleDestroy(destroyTime);
-}
-
-function joinRoom(){
-  room=document.getElementById("joinCode").value;
-  if(!room) return alert("Enter valid room code");
-  isAdmin=false;
-  document.getElementById("adminBtn").style.display="none";
-  startChat();
-  showSharePopup(); // popup on join
-}
-
-function startChat(){
-  document.getElementById("menu").style.display="none";
-  document.getElementById("chatUI").style.display="flex";
-  document.getElementById("roomLabel").innerText=room;
-  set(ref(db,"rooms/"+room+"/users/"+user),true);
-  listenMessages();
-  autoJoinFromLink();
-}
-
-function listenMessages(){
-  onValue(ref(db,"rooms/"+room+"/messages"), snap=>{
-    let chat=document.getElementById("chat");
-    chat.innerHTML="";
-    snap.forEach(m=>{
-      let d=m.val();
-      let div=document.createElement("div");
-      div.className="msg "+(d.user==user?"me":"other");
-      if(d.type==="text") div.innerText=d.user+": "+d.text;
-      if(d.type==="image") div.innerHTML=d.user+":<br><img src='"+d.url+"' style='max-width:70%;border-radius:8px;'>";
-      if(d.type==="voice") div.innerHTML=d.user+":<br><audio controls src='"+d.url+"'></audio>";
-      chat.appendChild(div);
-    });
-    document.getElementById("chat").scrollTop=document.getElementById("chat").scrollHeight;
-  });
-}
-
-function sendMsg(){
-  const text=document.getElementById("msg").value;
-  if(!text) return;
-  push(ref(db,"rooms/"+room+"/messages"),{user:user,text,type:"text"});
-  document.getElementById("msg").value="";
-}
-
-function sendImage(e){
-  const file=e.target.files[0];
-  if(!file) return;
-  const storageRef=sRef(storage,"images/"+Date.now()+"_"+file.name);
-  uploadBytes(storageRef,file).then(snapshot=>{
-    getDownloadURL(snapshot.ref).then(url=>{
-      push(ref(db,"rooms/"+room+"/messages"),{user:user,url,type:"image"});
-    });
-  });
-}
-
-let mediaRecorder, audioChunks=[];
-function startVoice(){
-  if(mediaRecorder && mediaRecorder.state==="recording"){ mediaRecorder.stop(); return; }
-  navigator.mediaDevices.getUserMedia({audio:true}).then(stream=>{
-    mediaRecorder=new MediaRecorder(stream);
-    audioChunks=[];
-    mediaRecorder.ondataavailable=e=>audioChunks.push(e.data);
-    mediaRecorder.onstop=()=>{
-      const blob=new Blob(audioChunks,{type:'audio/webm'});
-      if(blob.size>1024*1024*5){alert("Max 1 min allowed");return;} 
-      const storageRef=sRef(storage,"voice/"+Date.now()+".webm");
-      uploadBytes(storageRef,blob).then(snapshot=>{
-        getDownloadURL(snapshot.ref).then(url=>{
-          push(ref(db,"rooms/"+room+"/messages"),{user:user,url,type:"voice"});
-        });
-      });
+    const firebaseConfig = {
+        apiKey: "AIzaSyC4mYZ5G-WCjt7wAN0G6_B6rh1LDM10U0Q",
+        authDomain: "chat-data-59467.firebaseapp.com",
+        databaseURL: "https://chat-data-59467-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "chat-data-59467",
+        storageBucket: "chat-data-59467.firebasestorage.app",
+        messagingSenderId: "237808362163",
+        appId: "1:237808362163:web:52d25dfbffaffde12446c6"
     };
-    mediaRecorder.start();
-    setTimeout(()=>{ if(mediaRecorder.state==="recording") mediaRecorder.stop(); },60000);
-  });
-}
 
-function leave(){
-  remove(ref(db,"rooms/"+room+"/users/"+user));
-  location.href=location.pathname;
-}
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const storage = getStorage(app);
 
-function destroyRoom(){
-  if(!isAdmin) return;
-  showSharePopup();
-  setTimeout(()=>{
-    remove(ref(db,"rooms/"+room));
-    location.href=location.pathname;
-  },1000);
-}
+    let currentRoom = null;
+    let isAdmin = false;
+    let myColor = `#${Math.floor(Math.random()*16777215).toString(16)}`;
 
-function enterAdminCode(){
-  const code=prompt("Enter Admin Code:");
-  if(!code) return;
-  get(ref(db,"rooms/"+room+"/adminCode")).then(snap=>{
-    if(snap.val()===code){
-      isAdmin=true;
-      document.getElementById("adminBtn").style.display="inline-block";
-      alert("You are now an admin!");
-    } else alert("Incorrect code");
-  });
-}
+    // --- UTILITIES ---
+    const genRoomId = () => Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10);
+    const genAdminCode = () => Math.floor(1000 + Math.random() * 9000) + Math.random().toString(36).substring(2, 4).toUpperCase();
 
-function shareRoom(){
-  let link=location.origin+location.pathname+"?room="+room;
-  navigator.share?.({title:"Join Chat",text:"Join my room",url:link}) || alert(link);
-}
+    // --- CORE LOGIC ---
+    async function createRoom() {
+        const name = document.getElementById('userName').value || "Anonymous";
+        const mins = parseInt(document.getElementById('destroyTime').value) || 30;
+        const roomId = genRoomId();
+        const adminCode = genAdminCode();
+        const destroyAt = Date.now() + (mins * 60000);
 
-// --- Share Popup ---
-function showSharePopup(){
-  document.getElementById("sharePopup").style.display="flex";
-  document.getElementById("sharePopupBtn").onclick=()=>{
-    let link=location.origin+location.pathname;
-    if(navigator.share) navigator.share({title:"Join Chat",text:"Join my room",url:link});
-    else prompt("Copy and share this link:",link);
-  };
-}
-function closeSharePopup(){document.getElementById("sharePopup").style.display="none";}
+        await set(ref(db, `rooms/${roomId}`), {
+            creator: name,
+            createdAt: serverTimestamp(),
+            destroyAt: destroyAt,
+            adminCode: adminCode
+        });
 
-// --- Auto join via URL ---
-function autoJoinFromLink(){
-  const params=new URLSearchParams(window.location.search);
-  const r=params.get("room");
-  if(r){room=r;isAdmin=false;document.getElementById("adminBtn").style.display="none";}
-}
+        alert(`Room Created!\nRoom ID: ${roomId}\nAdmin Code: ${adminCode}\nSAVE THIS ADMIN CODE!`);
+        joinRoom(roomId, true);
+    }
 
-// --- Auto destroy timer ---
-function scheduleDestroy(time){
-  const delay=time-Date.now();
-  if(delay>0) destroyTimeout=setTimeout(()=>destroyRoom(),delay);
-}
+    function joinRoom(roomId, asCreator = false) {
+        currentRoom = roomId;
+        document.getElementById('menu').classList.add('hidden');
+        document.getElementById('roomDisplay').innerText = `ROOM: ${roomId}`;
+        
+        // Listen for messages
+        const msgRef = ref(db, `messages/${roomId}`);
+        onChildAdded(msgRef, (data) => {
+            renderMessage(data.val());
+        });
+
+        // Room Auto-Destruction Check
+        const roomRef = ref(db, `rooms/${roomId}`);
+        onValue(roomRef, (snapshot) => {
+            if (!snapshot.exists()) {
+                alert("Room has been destroyed.");
+                location.reload();
+            }
+        });
+    }
+
+    function renderMessage(msg) {
+        const div = document.createElement('div');
+        const isMe = msg.sender === document.getElementById('userName').value;
+        div.className = `bubble ${isMe ? 'my-msg bg-emerald-800' : 'their-msg bg-[#202c33]'}`;
+        div.style.borderLeft = `4px solid ${msg.color}`;
+        div.innerHTML = `<div class="text-[10px] opacity-70">${msg.sender}</div><div>${msg.text}</div>`;
+        document.getElementById('chatBox').appendChild(div);
+        document.getElementById('chatBox').scrollTop = document.getElementById('chatBox').scrollHeight;
+    }
+
+    async function sendMessage() {
+        const text = document.getElementById('msgInput').value;
+        if(!text) return;
+        
+        await push(ref(db, `messages/${currentRoom}`), {
+            sender: document.getElementById('userName').value || "Guest",
+            text: text,
+            color: myColor,
+            timestamp: serverTimestamp()
+        });
+        document.getElementById('msgInput').value = "";
+    }
+
+    // --- EVENTS ---
+    document.getElementById('btnCreate').onclick = createRoom;
+    document.getElementById('btnJoin').onclick = () => joinRoom(document.getElementById('joinId').value);
+    document.getElementById('msgInput').onkeypress = (e) => { if(e.key === 'Enter') sendMessage(); };
+
+    // Auto-join from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    if(urlParams.get('room')) {
+        document.getElementById('joinId').value = urlParams.get('room');
+    }
 </script>
 </body>
 </html>
