@@ -1,277 +1,268 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ultra Chat</title>
+<meta charset="UTF-8">
+<title>WhatsApp Style Firebase Chat</title>
 
 <style>
-*{box-sizing:border-box}
 body{
- margin:0;
- font-family:Arial;
- overflow:hidden;
- transition:0.3s;
+margin:0;
+font-family:sans-serif;
+background:#0b141a;
+color:white;
 }
-.dark{background:#0f172a;color:white}
-.light{background:#f1f5f9;color:black}
 
-/* FULL SCREEN CHAT */
+.light{
+background:#f0f2f5;
+color:black;
+}
+
+header{
+padding:10px;
+background:#202c33;
+display:flex;
+justify-content:space-between;
+}
+
+.light header{
+background:#e4e6eb;
+}
+
 #chat{
- display:none;
- height:100vh;
- display:flex;
- flex-direction:column;
+height:75vh;
+overflow-y:auto;
+padding:10px;
 }
 
-/* TOP BAR */
-.top{
- display:flex;
- justify-content:space-between;
- padding:10px;
- backdrop-filter:blur(10px);
-}
-
-/* MESSAGE AREA */
-#messages{
- flex:1;
- overflow:auto;
- padding:10px;
-}
-
-/* MESSAGE STYLE */
 .msg{
- padding:8px;
- margin:6px;
- border-radius:12px;
- animation:fade 0.3s ease;
-}
-@keyframes fade{
- from{opacity:0; transform:translateY(10px)}
- to{opacity:1}
+padding:8px 12px;
+margin:5px;
+border-radius:10px;
+max-width:70%;
+display:inline-block;
 }
 
-/* INPUT AREA */
-.bottom{
- display:flex;
- padding:10px;
- gap:5px;
+.me{
+background:#005c4b;
+float:right;
+clear:both;
 }
 
-/* ICON BUTTONS */
-.iconBtn{
- width:45px;
- height:45px;
- border-radius:50%;
- border:none;
- font-size:20px;
- cursor:pointer;
- background:#22c55e;
- color:white;
+.other{
+background:#202c33;
+float:left;
+clear:both;
 }
 
-/* ROOM PAGE */
-#roomPage{
- display:flex;
- flex-direction:column;
- align-items:center;
- justify-content:center;
- height:100vh;
- gap:10px;
+.light .other{
+background:#d9d9d9;
 }
 
-/* ANIMATION */
-.glow{
- animation:glow 2s infinite alternate;
+input{
+width:70%;
+padding:10px;
+border:none;
+outline:none;
 }
-@keyframes glow{
- from{box-shadow:0 0 5px #22c55e}
- to{box-shadow:0 0 20px #22c55e}
+
+button{
+padding:10px;
+border:none;
+cursor:pointer;
+border-radius:6px;
 }
+
+.controls{
+display:flex;
+padding:10px;
+gap:5px;
+}
+
+.userColor1{ background:#ff6b6b }
+.userColor2{ background:#4ecdc4 }
+.userColor3{ background:#ffd93d }
+.userColor4{ background:#6c5ce7 }
+
+#typing{
+font-size:12px;
+opacity:0.7;
+margin-left:10px;
+}
+
 </style>
 </head>
 
-<body class="dark">
+<body>
 
-<!-- ROOM PAGE -->
-<div id="roomPage">
-<h2 class="glow">Realtime Room Chat</h2>
-
-<button onclick="createRoom()">Create Room</button>
-<input id="roomInput" placeholder="Room ID">
-<button onclick="joinRoom()">Join</button>
-<div id="error" style="color:red"></div>
-</div>
-
-<!-- CHAT PAGE -->
-<div id="chat">
-<div class="top">
-<div id="roomTitle"></div>
+<header>
 <div>
-<button class="iconBtn" onclick="toggleTheme()">🌓</button>
-<button class="iconBtn" id="destroyBtn" onclick="destroyRoom()" style="display:none">💣</button>
-</div>
+Room: <span id="roomLabel">None</span> |
+Users: <span id="userCount">0</span>
 </div>
 
-<div id="messages"></div>
+<div>
+<button onclick="toggleTheme()">🌙</button>
+</div>
+</header>
 
-<div class="bottom">
-<input id="msg" placeholder="Message" style="flex:1;padding:10px;border-radius:10px">
-<button class="iconBtn" onclick="sendMsg()">➤</button>
-<button class="iconBtn" onclick="startRecord()">🎤</button>
-<input type="file" id="imgFile" hidden accept="image/*" onchange="sendImage(event)">
-<button class="iconBtn" onclick="imgFile.click()">🖼</button>
+<div id="chat"></div>
+<div id="typing"></div>
+
+<div class="controls">
+<input id="msgInput" placeholder="Type message..." oninput="typing()">
+<button onclick="sendMsg()">➤</button>
+<button onclick="startVoice()">🎤</button>
+<button onclick="leaveRoom()">🚪</button>
 </div>
-</div>
+
+<audio id="joinSound" src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"></audio>
+<audio id="leaveSound" src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg"></audio>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getDatabase, ref, set, push, onChildAdded, onValue, remove }
-from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-/* FIREBASE CONFIG */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import {
+getDatabase,
+ref,
+push,
+set,
+onValue,
+remove,
+update
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
 const firebaseConfig = {
- apiKey: "AIzaSyC4mYZ5G-WCjt7wAN0G6_B6rh1LDM10U0Q",
- authDomain: "chat-data-59467.firebaseapp.com",
- databaseURL: "https://chat-data-59467-default-rtdb.asia-southeast1.firebasedatabase.app",
- projectId: "chat-data-59467",
- storageBucket: "chat-data-59467.firebasestorage.app",
- messagingSenderId: "237808362163",
- appId: "1:237808362163:web:52d25dfbffaffde12446c6"
+apiKey: "AIzaSyC4mYZ5G-WCjt7wAN0G6_B6rh1LDM10U0Q",
+authDomain: "chat-data-59467.firebaseapp.com",
+databaseURL: "https://chat-data-59467-default-rtdb.asia-southeast1.firebasedatabase.app",
+projectId: "chat-data-59467",
+storageBucket: "chat-data-59467.firebasestorage.app",
+messagingSenderId: "237808362163",
+appId: "1:237808362163:web:52d25dfbffaffde12446c6"
 };
 
-const app=initializeApp(firebaseConfig);
-const db=getDatabase(app);
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
 
-/* VARIABLES */
-let room="";
-let admin=false;
-let destroyTime=0;
-let msgRef;
+let room = "";
+let userId = "User" + Math.floor(Math.random()*9999);
+let destroyTime = 0;
+let mediaRecorder;
+let voiceChunks = [];
 
-/* USER COLOR */
-const colors=["#22c55e","#3b82f6","#f59e0b","#ef4444","#a855f7"];
-const user="User-"+Math.floor(Math.random()*999);
-const userColor=colors[Math.floor(Math.random()*colors.length)];
+joinRoom();
 
-/* CREATE ROOM */
-window.createRoom=()=>{
- room=Math.random().toString(36).substring(2,6);
- admin=true;
-
- let t=prompt("Destroy room after minutes? (Optional)");
- if(t) destroyTime=parseInt(t)*60000;
-
- startChat();
+function joinRoom(){
+room = prompt("Enter Room ID");
+if(!room){
+alert("Invalid Room ID");
+location.reload();
+return;
 }
 
-/* JOIN ROOM */
-window.joinRoom=()=>{
- let r=document.getElementById("roomInput").value;
- if(!r){
-  document.getElementById("error").innerText="Enter Room ID";
-  return;
- }
- room=r;
- startChat();
+if(confirm("Create Room?")){
+let min = prompt("Auto destroy room after minutes? (0 = no destroy)");
+destroyTime = Number(min) || 0;
 }
 
-/* START CHAT */
-function startChat(){
- document.getElementById("roomPage").style.display="none";
- document.getElementById("chat").style.display="flex";
- document.getElementById("roomTitle").innerText="Room: "+room;
+document.getElementById("roomLabel").innerText = room;
 
- msgRef=ref(db,"rooms/"+room+"/messages");
+const userRef = ref(db, "rooms/"+room+"/users/"+userId);
+set(userRef, true);
 
- if(admin){
-  document.getElementById("destroyBtn").style.display="inline-block";
+document.getElementById("joinSound").play();
 
-  if(destroyTime){
-   setTimeout(()=>{
-    destroyRoom();
-   },destroyTime);
-  }
- }
+listenMessages();
+listenUsers();
 
- onChildAdded(msgRef,s=>{
-  let m=s.val();
-  let div=document.createElement("div");
-  div.className="msg";
-  div.style.background=m.color+"33";
-
-  if(m.type=="text"){
-   div.innerHTML="<b style='color:"+m.color+"'>"+m.user+"</b><br>"+m.text;
-  }
-  if(m.type=="img"){
-   div.innerHTML="<b style='color:"+m.color+"'>"+m.user+"</b><br><img src='"+m.text+"' width=150>";
-  }
-  if(m.type=="voice"){
-   div.innerHTML="<b style='color:"+m.color+"'>"+m.user+"</b><br><audio controls src='"+m.text+"'></audio>";
-  }
-
-  document.getElementById("messages").appendChild(div);
- });
+if(destroyTime > 0){
+setTimeout(()=>{
+remove(ref(db,"rooms/"+room));
+alert("Room Destroyed");
+location.reload();
+}, destroyTime*60000);
+}
 }
 
-/* SEND TEXT */
-window.sendMsg=()=>{
- let text=document.getElementById("msg").value;
- if(!text) return;
+function listenMessages(){
+const msgRef = ref(db,"rooms/"+room+"/messages");
 
- push(msgRef,{user:user,color:userColor,type:"text",text:text});
- document.getElementById("msg").value="";
+onValue(msgRef,snap=>{
+const chat = document.getElementById("chat");
+chat.innerHTML="";
+
+snap.forEach(m=>{
+let data = m.val();
+let div = document.createElement("div");
+div.className="msg "+(data.user===userId?"me":"other");
+div.innerHTML = "<b>"+data.user+"</b><br>"+(data.text||"🎤 Voice Message");
+chat.appendChild(div);
+});
+
+chat.scrollTop = chat.scrollHeight;
+});
 }
 
-/* SEND IMAGE */
-window.sendImage=(e)=>{
- let file=e.target.files[0];
- let reader=new FileReader();
- reader.onload=()=>{
-  push(msgRef,{user:user,color:userColor,type:"img",text:reader.result});
- };
- reader.readAsDataURL(file);
+function listenUsers(){
+const userRef = ref(db,"rooms/"+room+"/users");
+
+onValue(userRef,snap=>{
+document.getElementById("userCount").innerText = snap.size;
+});
 }
 
-/* VOICE RECORD MAX 1 MIN */
-let recorder;
-let chunks=[];
+window.sendMsg = function(){
+let text = document.getElementById("msgInput").value;
+if(!text) return;
 
-window.startRecord=async()=>{
- let stream=await navigator.mediaDevices.getUserMedia({audio:true});
- recorder=new MediaRecorder(stream);
- recorder.start();
+push(ref(db,"rooms/"+room+"/messages"),{
+user:userId,
+text:text,
+time:Date.now()
+});
 
- recorder.ondataavailable=e=>chunks.push(e.data);
-
- recorder.onstop=()=>{
-  let blob=new Blob(chunks,{type:"audio/mp3"});
-  let reader=new FileReader();
-  reader.onload=()=>{
-   push(msgRef,{user:user,color:userColor,type:"voice",text:reader.result});
-  };
-  reader.readAsDataURL(blob);
-  chunks=[];
- };
-
- setTimeout(()=>recorder.stop(),60000); // 1 MINUTE
+document.getElementById("msgInput").value="";
 }
 
-/* DESTROY ROOM */
-window.destroyRoom=()=>{
- if(confirm("Destroy room?")){
-  remove(ref(db,"rooms/"+room));
-  alert("Room Destroyed");
-  location.reload();
- }
+window.typing = function(){
+document.getElementById("typing").innerText="Typing...";
+setTimeout(()=>document.getElementById("typing").innerText="",1000);
 }
 
-/* THEME */
-window.toggleTheme=()=>{
- let b=document.body;
- b.classList.toggle("dark");
- b.classList.toggle("light");
+window.leaveRoom = function(){
+remove(ref(db,"rooms/"+room+"/users/"+userId));
+document.getElementById("leaveSound").play();
+location.reload();
 }
+
+window.toggleTheme = function(){
+document.body.classList.toggle("light");
+}
+
+window.startVoice = async function(){
+let stream = await navigator.mediaDevices.getUserMedia({audio:true});
+mediaRecorder = new MediaRecorder(stream);
+
+voiceChunks=[];
+
+mediaRecorder.ondataavailable=e=>voiceChunks.push(e.data);
+
+mediaRecorder.onstop=e=>{
+push(ref(db,"rooms/"+room+"/messages"),{
+user:userId,
+voice:true,
+time:Date.now()
+});
+};
+
+mediaRecorder.start();
+
+setTimeout(()=>{
+mediaRecorder.stop();
+},60000); // 1 min max
+}
+
 </script>
 
 </body>
-  </html>
+</html>
