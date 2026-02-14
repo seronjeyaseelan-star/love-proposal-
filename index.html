@@ -2,140 +2,215 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Advanced Room Chat</title>
+<title>Ultra Chat</title>
 
 <style>
-body{font-family:Arial;margin:0;text-align:center}
+*{box-sizing:border-box}
+body{
+ margin:0;
+ font-family:Arial;
+ overflow:hidden;
+ transition:0.3s;
+}
 .dark{background:#0f172a;color:white}
 .light{background:#f1f5f9;color:black}
-#chat{display:none}
-#messages{height:300px;overflow:auto;border:1px solid gray;margin:10px;padding:10px;border-radius:10px}
-.msg{padding:6px;margin:4px;border-radius:8px;background:#22c55e33}
-input,button{padding:10px;margin:5px;border-radius:8px;border:none}
-button{background:#22c55e;color:white}
+
+/* FULL SCREEN CHAT */
+#chat{
+ display:none;
+ height:100vh;
+ display:flex;
+ flex-direction:column;
+}
+
+/* TOP BAR */
+.top{
+ display:flex;
+ justify-content:space-between;
+ padding:10px;
+ backdrop-filter:blur(10px);
+}
+
+/* MESSAGE AREA */
+#messages{
+ flex:1;
+ overflow:auto;
+ padding:10px;
+}
+
+/* MESSAGE STYLE */
+.msg{
+ padding:8px;
+ margin:6px;
+ border-radius:12px;
+ animation:fade 0.3s ease;
+}
+@keyframes fade{
+ from{opacity:0; transform:translateY(10px)}
+ to{opacity:1}
+}
+
+/* INPUT AREA */
+.bottom{
+ display:flex;
+ padding:10px;
+ gap:5px;
+}
+
+/* ICON BUTTONS */
+.iconBtn{
+ width:45px;
+ height:45px;
+ border-radius:50%;
+ border:none;
+ font-size:20px;
+ cursor:pointer;
+ background:#22c55e;
+ color:white;
+}
+
+/* ROOM PAGE */
+#roomPage{
+ display:flex;
+ flex-direction:column;
+ align-items:center;
+ justify-content:center;
+ height:100vh;
+ gap:10px;
+}
+
+/* ANIMATION */
+.glow{
+ animation:glow 2s infinite alternate;
+}
+@keyframes glow{
+ from{box-shadow:0 0 5px #22c55e}
+ to{box-shadow:0 0 20px #22c55e}
+}
 </style>
 </head>
 
 <body class="dark">
 
-<h2>Advanced Temporary Chat</h2>
-
+<!-- ROOM PAGE -->
 <div id="roomPage">
-<button onclick="createRoom()">Create Room</button><br>
-<input id="roomInput" placeholder="Enter Room ID">
-<button onclick="joinRoom()">Join Room</button><br>
-<label>Auto Destroy (minutes)</label>
-<input id="timer" type="number" placeholder="Ex: 5">
+<h2 class="glow">Realtime Room Chat</h2>
+
+<button onclick="createRoom()">Create Room</button>
+<input id="roomInput" placeholder="Room ID">
+<button onclick="joinRoom()">Join</button>
 <div id="error" style="color:red"></div>
 </div>
 
+<!-- CHAT PAGE -->
 <div id="chat">
-<h3 id="roomTitle"></h3>
-<div>Online: <span id="online">0</span></div>
+<div class="top">
+<div id="roomTitle"></div>
+<div>
+<button class="iconBtn" onclick="toggleTheme()">🌓</button>
+<button class="iconBtn" id="destroyBtn" onclick="destroyRoom()" style="display:none">💣</button>
+</div>
+</div>
+
 <div id="messages"></div>
 
-<input id="msg" placeholder="Message" oninput="typing()">
-<button onclick="sendMsg()">Send</button>
-
-<button onclick="startRecord()">🎤 Voice</button>
-<input type="file" accept="image/*" onchange="sendImage(event)">
-
-<div id="typing"></div>
-
-<button onclick="toggleTheme()">Theme</button>
+<div class="bottom">
+<input id="msg" placeholder="Message" style="flex:1;padding:10px;border-radius:10px">
+<button class="iconBtn" onclick="sendMsg()">➤</button>
+<button class="iconBtn" onclick="startRecord()">🎤</button>
+<input type="file" id="imgFile" hidden accept="image/*" onchange="sendImage(event)">
+<button class="iconBtn" onclick="imgFile.click()">🖼</button>
+</div>
 </div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getDatabase, ref, set, push, onValue, onChildAdded, onDisconnect, remove }
+import { getDatabase, ref, set, push, onChildAdded, onValue, remove }
 from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
+/* FIREBASE CONFIG */
 const firebaseConfig = {
-  apiKey: "AIzaSyC4mYZ5G-WCjt7wAN0G6_B6rh1LDM10U0Q",
-  authDomain: "chat-data-59467.firebaseapp.com",
-  databaseURL: "https://chat-data-59467-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "chat-data-59467",
-  storageBucket: "chat-data-59467.firebasestorage.app",
-  messagingSenderId: "237808362163",
-  appId: "1:237808362163:web:52d25dfbffaffde12446c6"
+ apiKey: "AIzaSyC4mYZ5G-WCjt7wAN0G6_B6rh1LDM10U0Q",
+ authDomain: "chat-data-59467.firebaseapp.com",
+ databaseURL: "https://chat-data-59467-default-rtdb.asia-southeast1.firebasedatabase.app",
+ projectId: "chat-data-59467",
+ storageBucket: "chat-data-59467.firebasestorage.app",
+ messagingSenderId: "237808362163",
+ appId: "1:237808362163:web:52d25dfbffaffde12446c6"
 };
 
 const app=initializeApp(firebaseConfig);
 const db=getDatabase(app);
 
+/* VARIABLES */
 let room="";
-let user="user"+Math.floor(Math.random()*1000);
 let admin=false;
+let destroyTime=0;
 let msgRef;
 
+/* USER COLOR */
+const colors=["#22c55e","#3b82f6","#f59e0b","#ef4444","#a855f7"];
+const user="User-"+Math.floor(Math.random()*999);
+const userColor=colors[Math.floor(Math.random()*colors.length)];
+
+/* CREATE ROOM */
 window.createRoom=()=>{
  room=Math.random().toString(36).substring(2,6);
  admin=true;
+
+ let t=prompt("Destroy room after minutes? (Optional)");
+ if(t) destroyTime=parseInt(t)*60000;
+
  startChat();
 }
 
+/* JOIN ROOM */
 window.joinRoom=()=>{
  let r=document.getElementById("roomInput").value;
  if(!r){
-   document.getElementById("error").innerText="Enter Room ID";
-   return;
+  document.getElementById("error").innerText="Enter Room ID";
+  return;
  }
  room=r;
  startChat();
 }
 
+/* START CHAT */
 function startChat(){
  document.getElementById("roomPage").style.display="none";
- document.getElementById("chat").style.display="block";
+ document.getElementById("chat").style.display="flex";
  document.getElementById("roomTitle").innerText="Room: "+room;
 
  msgRef=ref(db,"rooms/"+room+"/messages");
 
- let userRef=ref(db,"rooms/"+room+"/users/"+user);
- set(userRef,true);
- onDisconnect(userRef).remove();
+ if(admin){
+  document.getElementById("destroyBtn").style.display="inline-block";
 
- /* USER COUNT */
- onValue(ref(db,"rooms/"+room+"/users"),s=>{
-  if(!s.exists()) return;
-  let list=Object.keys(s.val());
-  document.getElementById("online").innerText=list.length;
- });
-
- /* MESSAGES */
- onChildAdded(msgRef,s=>{
-   let m=s.val();
-   let div=document.createElement("div");
-   div.className="msg";
-
-   if(m.type=="text"){
-     div.innerHTML="<b>"+m.user+"</b>: "+m.text;
-   }
-   if(m.type=="img"){
-     div.innerHTML="<b>"+m.user+"</b><br><img src='"+m.text+"' width=120>";
-   }
-   if(m.type=="voice"){
-     div.innerHTML="<b>"+m.user+"</b><br><audio controls src='"+m.text+"'></audio>";
-   }
-
-   document.getElementById("messages").appendChild(div);
- });
-
- /* TYPING */
- onValue(ref(db,"rooms/"+room+"/typing"),s=>{
-  if(!s.exists()) document.getElementById("typing").innerText="";
-  else document.getElementById("typing").innerText="Someone typing...";
- });
-
- /* AUTO TIMER */
- let t=document.getElementById("timer").value;
- if(admin && t){
+  if(destroyTime){
    setTimeout(()=>{
-     remove(ref(db,"rooms/"+room));
-     alert("Room Destroyed");
-     location.reload();
-   },t*60000);
+    destroyRoom();
+   },destroyTime);
+  }
  }
+
+ onChildAdded(msgRef,s=>{
+  let m=s.val();
+  let div=document.createElement("div");
+  div.className="msg";
+  div.style.background=m.color+"33";
+
+  if(m.type=="text"){
+   div.innerHTML="<b style='color:"+m.color+"'>"+m.user+"</b><br>"+m.text;
+  }
+  if(m.type=="img"){
+   div.innerHTML="<b style='color:"+m.color+"'>"+m.user+"</b><br><img src='"+m.text+"' width=150>";
+  }
+  if(m.type=="voice"){
+   div.innerHTML="<b style='color:"+m.color+"'>"+m.user+"</b><br><audio controls src='"+m.text+"'></audio>";
+  }
+
+  document.getElementById("messages").appendChild(div);
+ });
 }
 
 /* SEND TEXT */
@@ -143,52 +218,51 @@ window.sendMsg=()=>{
  let text=document.getElementById("msg").value;
  if(!text) return;
 
- push(msgRef,{user:user,type:"text",text:text});
+ push(msgRef,{user:user,color:userColor,type:"text",text:text});
  document.getElementById("msg").value="";
 }
 
-/* IMAGE SEND */
+/* SEND IMAGE */
 window.sendImage=(e)=>{
  let file=e.target.files[0];
  let reader=new FileReader();
  reader.onload=()=>{
-   push(msgRef,{user:user,type:"img",text:reader.result});
+  push(msgRef,{user:user,color:userColor,type:"img",text:reader.result});
  };
  reader.readAsDataURL(file);
 }
 
-/* VOICE RECORD */
-let mediaRecorder;
-let audioChunks=[];
+/* VOICE RECORD MAX 1 MIN */
+let recorder;
+let chunks=[];
 
 window.startRecord=async()=>{
  let stream=await navigator.mediaDevices.getUserMedia({audio:true});
- mediaRecorder=new MediaRecorder(stream);
- mediaRecorder.start();
+ recorder=new MediaRecorder(stream);
+ recorder.start();
 
- mediaRecorder.ondataavailable=e=>{
-   audioChunks.push(e.data);
+ recorder.ondataavailable=e=>chunks.push(e.data);
+
+ recorder.onstop=()=>{
+  let blob=new Blob(chunks,{type:"audio/mp3"});
+  let reader=new FileReader();
+  reader.onload=()=>{
+   push(msgRef,{user:user,color:userColor,type:"voice",text:reader.result});
+  };
+  reader.readAsDataURL(blob);
+  chunks=[];
  };
 
- mediaRecorder.onstop=()=>{
-   let blob=new Blob(audioChunks,{type:"audio/mp3"});
-   let reader=new FileReader();
-   reader.onload=()=>{
-     push(msgRef,{user:user,type:"voice",text:reader.result});
-   };
-   reader.readAsDataURL(blob);
-   audioChunks=[];
- };
-
- setTimeout(()=>mediaRecorder.stop(),3000);
+ setTimeout(()=>recorder.stop(),60000); // 1 MINUTE
 }
 
-/* TYPING */
-window.typing=()=>{
- set(ref(db,"rooms/"+room+"/typing/"+user),true);
- setTimeout(()=>{
-  remove(ref(db,"rooms/"+room+"/typing/"+user));
- },2000);
+/* DESTROY ROOM */
+window.destroyRoom=()=>{
+ if(confirm("Destroy room?")){
+  remove(ref(db,"rooms/"+room));
+  alert("Room Destroyed");
+  location.reload();
+ }
 }
 
 /* THEME */
@@ -197,7 +271,7 @@ window.toggleTheme=()=>{
  b.classList.toggle("dark");
  b.classList.toggle("light");
 }
-
 </script>
+
 </body>
-</html>
+  </html>
